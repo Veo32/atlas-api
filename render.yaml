@@ -4,7 +4,7 @@ services:
     env: node
     plan: free
     buildCommand: corepack prepare pnpm@11.7.0 --activate && corepack pnpm install --frozen-lockfile && corepack pnpm --filter @aitools/api prisma:generate && corepack pnpm --filter @aitools/shared build && corepack pnpm --filter @aitools/api build
-    startCommand: corepack pnpm --filter @aitools/api exec node dist/apps/api/src/main.js
+    startCommand: corepack pnpm --filter @aitools/api start
     healthCheckPath: /v1/billing/plans
     envVars:
       - key: NODE_ENV
