@@ -1,0 +1,27 @@
+{
+  "name": "ai-tools-directory-saas",
+  "version": "1.0.0",
+  "private": true,
+  "packageManager": "pnpm@11.7.0",
+  "scripts": {
+    "dev": "pnpm -r --parallel dev",
+    "build": "pnpm -r build",
+    "lint": "pnpm -r lint",
+    "test": "pnpm -r test",
+    "typecheck": "pnpm -r typecheck",
+    "db:generate": "pnpm --filter @aitools/api prisma:generate",
+    "db:migrate": "pnpm --filter @aitools/api prisma:migrate",
+    "db:seed": "pnpm --filter @aitools/api prisma:seed",
+    "db:neon:apply": "node scripts/neon-db.cjs apply",
+    "db:neon:seed": "node scripts/neon-db.cjs seed",
+    "db:neon:verify": "node scripts/neon-db.cjs verify"
+  },
+  "devDependencies": {
+    "@prisma/client": "^6.1.0",
+    "@types/pg": "^8.20.0",
+    "pg": "^8.22.0",
+    "prettier": "^3.3.3",
+    "prisma": "^6.1.0",
+    "typescript": "^5.7.2"
+  }
+}
