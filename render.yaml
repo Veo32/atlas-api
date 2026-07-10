@@ -2,9 +2,9 @@ services:
   - type: web
     name: atlas-api
     env: node
-    plan: starter
-    buildCommand: corepack enable && corepack prepare pnpm@11.7.0 --activate && pnpm install --frozen-lockfile && pnpm db:generate && pnpm --filter @aitools/api build
-    startCommand: pnpm --filter @aitools/api start
+    plan: free
+    buildCommand: corepack prepare pnpm@11.7.0 --activate && corepack pnpm install --frozen-lockfile && corepack pnpm --filter @aitools/api prisma:generate && corepack pnpm --filter @aitools/shared build && corepack pnpm --filter @aitools/api build
+    startCommand: corepack pnpm --filter @aitools/api exec node dist/apps/api/src/main.js
     healthCheckPath: /v1/billing/plans
     envVars:
       - key: NODE_ENV
