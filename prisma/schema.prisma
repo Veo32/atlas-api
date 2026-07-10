@@ -1,0 +1,371 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum Role {
+  SUPER_ADMIN
+  ADMIN
+  MODERATOR
+  EDITOR
+  DEVELOPER
+  VENDOR
+  USER
+}
+
+enum ToolStatus {
+  DRAFT
+  PENDING
+  APPROVED
+  REJECTED
+  ARCHIVED
+}
+
+enum BillingProvider {
+  STRIPE
+  PAYPAL
+  PADDLE
+  LEMONSQUEEZY
+}
+
+enum EventType {
+  IMPRESSION
+  CLICK
+  SIGNUP
+  SUBSCRIPTION
+  API_CALL
+  CONVERSION
+}
+
+model User {
+  id              String        @id @default(cuid())
+  email           String        @unique
+  name            String?
+  passwordHash    String?
+  image           String?
+  locale          String        @default("en")
+  roles           Role[]        @default([USER])
+  twoFactorSecret String?
+  emailVerifiedAt DateTime?
+  lastLoginAt     DateTime?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  sessions        Session[]
+  tools           Tool[]        @relation("ToolOwner")
+  reviews         Review[]
+  bookmarks       Bookmark[]
+  collections     Collection[]
+  apiKeys         ApiKey[]
+  subscriptions   Subscription[]
+  notifications   Notification[]
+  auditLogs       AuditLog[]
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  userId       String
+  refreshHash  String
+  device       String?
+  ipAddress    String?
+  userAgent    String?
+  expiresAt    DateTime
+  createdAt    DateTime @default(now())
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Tool {
+  id              String           @id @default(cuid())
+  slug            String           @unique
+  name            String
+  tagline         String
+  description     String
+  websiteUrl      String
+  logoUrl         String?
+  screenshotUrl   String?
+  status          ToolStatus       @default(PENDING)
+  pricingModel    String           @default("freemium")
+  startingPrice   Decimal?         @db.Decimal(10, 2)
+  currency        String           @default("USD")
+  affiliateUrl    String?
+  isFeatured      Boolean          @default(false)
+  isSponsored     Boolean          @default(false)
+  sponsorWeight   Int              @default(0)
+  ownerId         String?
+  duplicateOfId   String?
+  averageRating   Decimal          @default(0) @db.Decimal(3, 2)
+  reviewCount     Int              @default(0)
+  popularityScore Int              @default(0)
+  seoTitle        String?
+  seoDescription  String?
+  canonicalUrl    String?
+  metadata        Json             @default("{}")
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  owner           User?            @relation("ToolOwner", fields: [ownerId], references: [id])
+  duplicateOf     Tool?            @relation("Duplicates", fields: [duplicateOfId], references: [id])
+  duplicates      Tool[]           @relation("Duplicates")
+  categories      ToolCategory[]
+  tags            ToolTag[]
+  translations    ToolTranslation[]
+  reviews         Review[]
+  bookmarks       Bookmark[]
+  collections     CollectionTool[]
+  claims          ClaimRequest[]
+  editRequests    EditRequest[]
+  analytics       AnalyticsEvent[]
+
+  @@index([status, isFeatured, isSponsored])
+  @@index([name])
+}
+
+model ToolTranslation {
+  id          String @id @default(cuid())
+  toolId      String
+  locale      String
+  name        String
+  tagline     String
+  description String
+  seoTitle    String?
+  seoDescription String?
+  tool        Tool   @relation(fields: [toolId], references: [id], onDelete: Cascade)
+
+  @@unique([toolId, locale])
+}
+
+model Category {
+  id           String              @id @default(cuid())
+  slug         String              @unique
+  name         String
+  description  String?
+  icon         String?
+  parentId     String?
+  sortOrder    Int                 @default(0)
+  parent       Category?           @relation("CategoryTree", fields: [parentId], references: [id])
+  children     Category[]          @relation("CategoryTree")
+  tools        ToolCategory[]
+  translations CategoryTranslation[]
+}
+
+model CategoryTranslation {
+  id          String   @id @default(cuid())
+  categoryId  String
+  locale      String
+  name        String
+  description String?
+  category    Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@unique([categoryId, locale])
+}
+
+model Tag {
+  id    String    @id @default(cuid())
+  slug  String    @unique
+  name  String
+  tools ToolTag[]
+}
+
+model ToolCategory {
+  toolId     String
+  categoryId String
+  tool       Tool     @relation(fields: [toolId], references: [id], onDelete: Cascade)
+  category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@id([toolId, categoryId])
+}
+
+model ToolTag {
+  toolId String
+  tagId  String
+  tool   Tool   @relation(fields: [toolId], references: [id], onDelete: Cascade)
+  tag    Tag    @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([toolId, tagId])
+}
+
+model Review {
+  id        String   @id @default(cuid())
+  toolId    String
+  userId    String
+  rating    Int
+  title     String?
+  body      String?
+  isVerified Boolean @default(false)
+  createdAt DateTime @default(now())
+  tool      Tool     @relation(fields: [toolId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([toolId, userId])
+}
+
+model Bookmark {
+  id        String   @id @default(cuid())
+  toolId    String
+  userId    String
+  createdAt DateTime @default(now())
+  tool      Tool     @relation(fields: [toolId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([toolId, userId])
+}
+
+model Collection {
+  id          String           @id @default(cuid())
+  userId      String
+  slug        String
+  title       String
+  description String?
+  isPublic    Boolean          @default(false)
+  user        User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tools       CollectionTool[]
+
+  @@unique([userId, slug])
+}
+
+model CollectionTool {
+  collectionId String
+  toolId       String
+  sortOrder    Int        @default(0)
+  collection   Collection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  tool         Tool       @relation(fields: [toolId], references: [id], onDelete: Cascade)
+
+  @@id([collectionId, toolId])
+}
+
+model Plan {
+  id          String         @id @default(cuid())
+  slug        String         @unique
+  name        String
+  description String?
+  price       Decimal        @db.Decimal(10, 2)
+  currency    String         @default("USD")
+  interval    String         @default("month")
+  features    Json           @default("[]")
+  limits      Json           @default("{}")
+  isPublic    Boolean        @default(true)
+  subscriptions Subscription[]
+}
+
+model Subscription {
+  id                 String          @id @default(cuid())
+  userId             String
+  planId             String
+  provider           BillingProvider
+  providerCustomerId String?
+  providerSubId      String?
+  status             String
+  currentPeriodEnd   DateTime?
+  user               User            @relation(fields: [userId], references: [id])
+  plan               Plan            @relation(fields: [planId], references: [id])
+}
+
+model ApiKey {
+  id        String   @id @default(cuid())
+  userId    String
+  name      String
+  keyHash   String   @unique
+  scopes    String[] @default([])
+  lastUsedAt DateTime?
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model AnalyticsEvent {
+  id          String    @id @default(cuid())
+  type        EventType
+  toolId      String?
+  userId      String?
+  sessionId   String?
+  source      String?
+  country     String?
+  path        String?
+  metadata    Json      @default("{}")
+  occurredAt  DateTime  @default(now())
+  tool        Tool?     @relation(fields: [toolId], references: [id], onDelete: SetNull)
+
+  @@index([type, occurredAt])
+  @@index([toolId, occurredAt])
+}
+
+model ClaimRequest {
+  id        String   @id @default(cuid())
+  toolId    String
+  email     String
+  status    String   @default("pending")
+  evidence  String?
+  createdAt DateTime @default(now())
+  tool      Tool     @relation(fields: [toolId], references: [id], onDelete: Cascade)
+}
+
+model EditRequest {
+  id        String   @id @default(cuid())
+  toolId    String
+  userId    String?
+  payload   Json
+  status    String   @default("pending")
+  createdAt DateTime @default(now())
+  tool      Tool     @relation(fields: [toolId], references: [id], onDelete: Cascade)
+}
+
+model ImportJob {
+  id         String   @id @default(cuid())
+  source     String
+  status     String   @default("queued")
+  stats      Json     @default("{}")
+  error      String?
+  createdAt  DateTime @default(now())
+  finishedAt DateTime?
+}
+
+model CmsPage {
+  id          String   @id @default(cuid())
+  slug        String
+  locale      String   @default("en")
+  title       String
+  blocks      Json     @default("[]")
+  seoTitle    String?
+  seoDescription String?
+  publishedAt DateTime?
+
+  @@unique([slug, locale])
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  title     String
+  body      String
+  readAt    DateTime?
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model EmailLead {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String?
+  planSlug  String?
+  source    String   @default("pricing")
+  locale    String   @default("en")
+  consent   Boolean  @default(true)
+  metadata  Json     @default("{}")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  actorId   String?
+  action    String
+  entity    String
+  entityId  String?
+  before    Json?
+  after     Json?
+  ipAddress String?
+  createdAt DateTime @default(now())
+  actor     User?    @relation(fields: [actorId], references: [id], onDelete: SetNull)
+}
